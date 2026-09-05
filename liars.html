@@ -96,6 +96,16 @@
 
 <div class="panel" id="gamePanel" style="display:none"></div>
 
+<div class="modal" id="nameModal">
+  <div class="modal-card">
+    <h2 id="nameTitle">Who's playing?</h2>
+    <input id="nameInput" maxlength="14" placeholder="Your name"
+      style="width:100%;font-size:18px;padding:12px;border:1px solid var(--rule);border-radius:8px;background:var(--bg);color:var(--ink);font-family:inherit">
+    <button class="mbtn" id="nameGo" style="background:var(--red);border-color:var(--red);color:#fff">Let's play</button>
+    <button class="mbtn" id="nameCancel">Cancel</button>
+  </div>
+</div>
+
 <div class="modal" id="rulesModal">
   <div class="modal-card">
     <h2>Liar's Dice</h2>
@@ -172,13 +182,24 @@
   }
   setInterval(poll, 2000);
 
-  function ensureName() {
-    if (!myName) {
-      myName = (prompt('Your name for this game?') || 'Player').trim().slice(0, 14) || 'Player';
-      localStorage.setItem('liars:name', myName);
-    }
-    return myName;
+  const nameModal = document.getElementById('nameModal'), nameInput = document.getElementById('nameInput');
+  let nameThen = null;
+  function askName(title, then) {
+    document.getElementById('nameTitle').textContent = title;
+    nameInput.value = myName;
+    nameThen = then;
+    nameModal.classList.add('open');
+    setTimeout(() => nameInput.focus(), 50);
   }
+  document.getElementById('nameGo').onclick = () => {
+    const v = nameInput.value.trim().slice(0, 14);
+    if (!v) { nameInput.focus(); return; }
+    myName = v; localStorage.setItem('liars:name', v);
+    nameModal.classList.remove('open');
+    if (nameThen) { const fn = nameThen; nameThen = null; fn(); }
+  };
+  document.getElementById('nameCancel').onclick = () => { nameThen = null; nameModal.classList.remove('open'); };
+  nameInput && nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('nameGo').click(); });
 
   function freshRound(starter) {
     ['A', 'B'].forEach(s => { if (game.seats[s]) game.seats[s].dice = rollN(game.seats[s].alive); });
@@ -186,19 +207,22 @@
   }
 
   function startGame() {
-    ensureName();
+    askName('Start a game \u2014 who are you?', () => {
     game = { kind: 'liars', seats: { A: { id: deviceId, name: myName, alive: 5, dice: rollN(5) }, B: null }, round: { turn: 'A', bids: [], phase: 'wait' }, writer: deviceId, ts: '' };
     gameCode = newCode(); lastSeenTs = '';
     view = 'game'; render(); push();
+    });
   }
 
   function joinOrOpen(code, data) {
     gameCode = code; game = data; lastSeenTs = '';
     if (!mySeat() && !game.seats.B) {
-      ensureName();
-      game.seats.B = { id: deviceId, name: myName, alive: 5, dice: rollN(5) };
-      if (game.round.phase === 'wait') game.round = { turn: 'A', bids: [], phase: 'bid' };
-      push();
+      askName('Join ' + (game.seats.A ? game.seats.A.name : 'them') + ' \u2014 who are you?', () => {
+        game.seats.B = { id: deviceId, name: myName, alive: 5, dice: rollN(5) };
+        if (game.round.phase === 'wait') game.round = { turn: 'A', bids: [], phase: 'bid' };
+        view = 'game'; render(); push();
+      });
+      return;
     }
     view = 'game'; render();
   }
