@@ -342,7 +342,8 @@
         if (v === null) b.innerHTML = '<span class="dot">·</span>';
         else { b.textContent = v === 0 ? '—' : v; b.classList.add('filled'); if (v === 0) b.classList.add('zero'); }
         if (picker && picker.p === i && picker.cat.id === cat.id) b.classList.add('active');
-        const unlocked = v !== null || window.__canScore(p, cat.id);
+        const myTurn = (turnIdx === -1 || i === turnIdx);
+        const unlocked = v !== null || (myTurn && window.__canScore(p, cat.id));
         if (!unlocked) b.classList.add('locked');
         b.setAttribute('aria-label', `${p.name}, ${cat.label}`);
         b.onclick = () => {
@@ -387,7 +388,7 @@
       if (p.scores.fiveKind === 50) {
         const s = el('div', 'stepper');
         const minus = el('button', 'mini', '−'); minus.onclick = () => { p.extraFives = Math.max(0, p.extraFives - 1); save(); render(); };
-        const plus  = el('button', 'mini', '+'); plus.onclick  = () => openJoker(i);
+        const plus  = el('button', 'mini', '+'); plus.onclick  = () => { if (turnIdx === -1 || i === turnIdx) openJoker(i); };
         s.appendChild(minus); s.appendChild(el('span', '', p.extraFives)); s.appendChild(plus);
         c.appendChild(s);
       } else c.innerHTML = '<span class="dot">·</span>';
