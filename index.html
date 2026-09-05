@@ -105,6 +105,11 @@
   .cell.turncol { background: #C9E1D2; }
   .turncol .box.filled { background: #EFF7F0; }
   .cell.turncol, .turncol .box:not(.active) { box-shadow: inset 2px 0 0 var(--felt), inset -2px 0 0 var(--felt); }
+  .die.big { width: 52px; height: 52px; border-radius: 10px; padding: 7px; border-width: 2px; }
+  .die.big i.on { width: 9px; height: 9px; }
+  .die.held { border-color: var(--felt); box-shadow: 0 0 0 3px var(--felt); }
+  .rollrow { display: flex; gap: 12px; justify-content: center; padding: 8px 0 14px; }
+  .rollrow button { background: none; border: none; padding: 0; }
   .codebig { font-family: ui-monospace, Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 6px; text-align: center; padding: 10px 0; }
   .joinrow { display: flex; gap: 8px; }
   .joinrow input { flex: 1; font-family: ui-monospace, Menlo, monospace; font-size: 20px; text-transform: uppercase; letter-spacing: 4px; text-align: center; padding: 8px; border: 1px solid var(--rule); border-radius: 8px; }
@@ -148,6 +153,7 @@
     <button class="hbtn" id="backupBtn">Backup</button>
     <button class="hbtn" id="shareBtn" style="display:none">Share</button>
     <button class="hbtn" id="reloadBtn" aria-label="Refresh">↻</button>
+    <button class="hbtn" id="rollBtn">Roll</button>
     <button class="hbtn" id="newBtn">Games</button>
   </div>
 </header>
@@ -157,7 +163,7 @@
     <div class="listhead">Games</div>
     <div id="gameList"><div class="listnote">Loading games…</div></div>
     <button class="newgamebtn" id="newGameBtn">+ New game</button>
-    <div style="text-align:center"><button class="ruleslink" id="allRulesBtn">Variant rulebook</button></div>
+    <div style="text-align:center"><button class="ruleslink" id="allRulesBtn">Variant rulebook</button> <a class="ruleslink" style="display:inline-block;text-decoration:underline" href="liars.html">Liar's Dice →</a></div>
   </div>
 </div>
 
@@ -363,6 +369,7 @@
         b.setAttribute('aria-label', `${p.name}, ${cat.label}`);
         b.onclick = () => {
           if (!unlocked) return;
+          roller = null;
           picker = (picker && picker.p === i && picker.cat.id === cat.id) ? null : { p: i, cat };
           render();
         };
@@ -436,7 +443,7 @@
 
   // ---- extra five-of-a-kind (Joker rules) ----
   let joker = null; // { p, face }
-  function openJoker(pi) { joker = { p: pi, face: null }; picker = null; renderSheet(); }
+  function openJoker(pi) { joker = { p: pi, face: null }; picker = null; roller = null; renderSheet(); }
   function applyJoker(target, value) {
     const p = players[joker.p];
     if (target) p.scores[target] = value;
@@ -487,7 +494,48 @@
     sheet.classList.add('open');
   }
 
+  // ---- dice roller (crypto-random, for when real dice aren't around) ----
+  let roller = null; // { dice:[5], held:[5], rolls:n }
+  function rollDie() {
+    const a = new Uint8Array(1);
+    do { crypto.getRandomValues(a); } while (a[0] >= 252); // reject to keep 1-6 uniform
+    return (a[0] % 6) + 1;
+  }
+  function openRoller() {
+    picker = null; joker = null;
+    roller = { dice: [0,0,0,0,0].map(rollDie), held: [false,false,false,false,false], rolls: 1 };
+    renderSheet();
+  }
+  function renderRoller() {
+    sheetTitle.textContent = 'Roll ' + roller.rolls + ' of 3 \u2014 tap dice to hold';
+    opts.innerHTML = '';
+    const row = el('div', 'rollrow');
+    roller.dice.forEach((f, i) => {
+      const b = el('button', '');
+      const dEl = die(f); dEl.classList.add('big'); if (roller.held[i]) dEl.classList.add('held');
+      b.appendChild(dEl);
+      b.onclick = () => { roller.held[i] = !roller.held[i]; renderSheet(); };
+      row.appendChild(b);
+    });
+    opts.appendChild(row);
+    const again = el('button', 'opt wide', roller.rolls >= 3 ? 'No rolls left' : 'Roll again');
+    again.style.minWidth = '100%';
+    if (roller.rolls >= 3) { again.disabled = true; again.style.opacity = .4; }
+    again.onclick = () => {
+      if (roller.rolls >= 3) return;
+      roller.dice = roller.dice.map((f, i) => roller.held[i] ? f : rollDie());
+      roller.rolls += 1; renderSheet();
+    };
+    opts.appendChild(again);
+    const fresh = el('button', 'opt wide clear', 'New turn (reset)');
+    fresh.style.minWidth = '100%';
+    fresh.onclick = () => openRoller();
+    opts.appendChild(fresh);
+    sheet.classList.add('open');
+  }
+
   function renderSheet() {
+    if (roller) { renderRoller(); return; }
     if (joker) { renderJoker(); return; }
     if (!picker) { sheet.classList.remove('open'); return; }
     const p = players[picker.p], cat = picker.cat, cur = p.scores[cat.id];
@@ -516,7 +564,8 @@
     if (catId === 'fiveKind' && v !== 50) p.extraFives = 0;
     picker = null; save(); render();
   }
-  document.getElementById('sheetClose').onclick = () => { picker = null; joker = null; render(); };
+  document.getElementById('sheetClose').onclick = () => { picker = null; joker = null; roller = null; render(); };
+  document.getElementById('rollBtn').onclick = () => { if (roller) { roller = null; render(); } else openRoller(); };
 
   // ---- header buttons ----
   document.getElementById('addBtn').onclick = () => {
@@ -709,6 +758,7 @@
     document.getElementById('addBtn').style.display = v === 'pad' ? '' : 'none';
     document.getElementById('backupBtn').style.display = v === 'pad' ? '' : 'none';
     document.getElementById('newBtn').style.display = v === 'pad' ? '' : 'none';
+    document.getElementById('rollBtn').style.display = v === 'pad' ? '' : 'none';
   }
 
   function openGame(code, plist, m) {
