@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Liar's Dice">
+<meta name="theme-color" content="#141110">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Liar's Dice</title>
+<style>
+  :root { --ink:#F2EDE2; --bg:#141110; --card:#211C1A; --red:#C0271D; --rule:#3A322E; --muted:#9C938A; --good:#3E7D5C; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); overscroll-behavior-y:none;
+    font-family:'Avenir Next','Segoe UI','Helvetica Neue',system-ui,sans-serif;
+    padding: calc(16px + env(safe-area-inset-top)) 14px calc(20px + env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; height:100dvh; overflow:hidden; }
+  button { font-family:inherit; cursor:pointer; }
+  header { display:flex; align-items:flex-end; justify-content:space-between; padding-bottom:12px; flex:none; }
+  h1 { font-size:26px; font-weight:800; margin:0; letter-spacing:-.5px; }
+  h1 span { color:var(--red); }
+  .sub { font-size:12px; color:var(--muted); margin-top:3px; }
+  .hbtns { display:flex; gap:8px; }
+  .hbtn { background:var(--card); color:var(--ink); border:1px solid var(--rule); border-radius:8px; padding:8px 12px; font-weight:700; font-size:13px; }
+  .panel { background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:14px; flex:1 1 auto; min-height:0; overflow-y:auto; }
+  .gamerow { display:flex; align-items:center; gap:10px; padding:12px 6px; border-bottom:1px solid var(--rule); }
+  .gamerow .grow { flex:1; min-width:0; }
+  .gamerow .who { font-weight:700; font-size:15px; }
+  .gamerow .meta { font-size:12px; color:var(--muted); margin-top:2px; }
+  .gamerow .del { background:none; border:none; color:var(--muted); font-size:18px; padding:4px 8px; }
+  .bigbtn { width:100%; height:48px; margin-top:12px; border-radius:10px; border:none; background:var(--red); color:#fff; font-weight:800; font-size:16px; }
+  .bigbtn.dim { background:var(--rule); color:var(--muted); }
+  .note { font-size:13px; color:var(--muted); padding:8px 2px; }
+  .ruleslink { background:none; border:none; color:var(--red); font-weight:700; font-size:13px; text-decoration:underline; padding:10px 4px; display:block; margin:0 auto; }
+
+  .opp { display:flex; align-items:center; justify-content:space-between; padding:6px 2px 12px; border-bottom:1px solid var(--rule); }
+  .opp .nm { font-weight:800; font-size:16px; }
+  .cups { font-size:12px; color:var(--muted); }
+  .die { width:44px; height:44px; border-radius:9px; background:#FBF8EF; border:2px solid #1D2B22; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); padding:6px; }
+  .die i.on { background:#1D2B22; border-radius:50%; width:7px; height:7px; margin:auto; }
+  .die.back { background:var(--red); border-color:#7E1812; }
+  .die.back i.on { display:none; }
+  .die.mini { width:26px; height:26px; padding:3px; border-radius:6px; border-width:1.5px; }
+  .die.mini i.on { width:4px; height:4px; }
+  .dicerow { display:flex; gap:8px; flex-wrap:wrap; padding:12px 0; }
+  .mydice { text-align:center; }
+  .peek { background:none; border:1px dashed var(--muted); color:var(--muted); border-radius:8px; padding:6px 12px; font-size:13px; }
+  .bidlog { padding:10px 0; font-size:14px; }
+  .bidlog .b { padding:3px 0; color:var(--muted); }
+  .bidlog .b:last-child { color:var(--ink); font-weight:700; font-size:16px; }
+  .turnline { font-weight:800; font-size:15px; padding:6px 0; }
+  .turnline.me { color:var(--red); }
+  .controls { border-top:1px solid var(--rule); padding-top:12px; margin-top:6px; }
+  .steppers { display:flex; gap:14px; justify-content:center; align-items:center; padding-bottom:12px; }
+  .stepgrp { text-align:center; }
+  .stepgrp .lab { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; padding-bottom:4px; }
+  .stepline { display:flex; align-items:center; gap:10px; }
+  .mini-b { width:34px; height:34px; border-radius:8px; border:1px solid var(--rule); background:var(--bg); color:var(--ink); font-size:18px; }
+  .stepval { font-weight:800; font-size:22px; min-width:30px; text-align:center; font-variant-numeric:tabular-nums; }
+  .actions { display:flex; gap:10px; }
+  .actions .bigbtn { margin-top:0; flex:1; }
+  .callbtn { background:var(--bg); border:2px solid var(--red); color:var(--red); }
+  .reveal { text-align:center; padding:8px 0; }
+  .reveal .verdict { font-size:18px; font-weight:800; padding:8px 0; }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:flex-end; z-index:20; }
+  .modal.open { display:flex; }
+  .modal-card { background:var(--card); width:100%; border-radius:14px 14px 0 0; padding:16px 16px calc(24px + env(safe-area-inset-bottom)); border-top:1px solid var(--rule); }
+  .modal-card h2 { margin:0 0 8px; font-size:18px; }
+  .rulestext { font-size:14px; line-height:1.55; color:var(--ink); max-height:55vh; overflow-y:auto; }
+  .mbtn { width:100%; height:44px; border-radius:8px; border:1px solid var(--rule); background:var(--bg); color:var(--ink); font-weight:700; font-size:15px; margin-top:12px; }
+  #status { font-size:12px; color:var(--muted); }
+  #status.err { color:#E7A49D; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Liar's <span>Dice</span></h1>
+    <div class="sub"><span id="status">&nbsp;</span></div>
+  </div>
+  <div class="hbtns">
+    <button class="hbtn" id="backBtn" style="display:none">Games</button>
+    <button class="hbtn" id="reloadBtn" aria-label="Refresh">&#8635;</button>
+    <a class="hbtn" style="text-decoration:none" href="index.html">Scorepad</a>
+  </div>
+</header>
+
+<div class="panel" id="listPanel">
+  <div id="gameList"><div class="note">Loading games&hellip;</div></div>
+  <button class="bigbtn" id="newBtn">+ New game</button>
+  <button class="ruleslink" id="rulesBtn">How to play</button>
+</div>
+
+<div class="panel" id="gamePanel" style="display:none"></div>
+
+<div class="modal" id="rulesModal">
+  <div class="modal-card">
+    <h2>Liar's Dice</h2>
+    <div class="rulestext">
+      <p>Both players start with five hidden dice. Each round, everyone's dice reroll and the loser of the last round bids first.</p>
+      <p>A bid claims how many dice of one face are on the table <em>in total, both hands combined</em> &mdash; "three 4s" means at least three 4s exist across all dice. Ones are wild and count as every face (except when the bid itself is on 1s).</p>
+      <p>On your turn: raise the bid (more dice, or the same count on a higher face) or call <strong>Liar!</strong> All dice reveal. If the bid holds, the caller loses a die; if it falls short, the bidder does.</p>
+      <p>Lose all five and you've lost the game. Bluff early, count wilds, and watch how fast they bid.</p>
+    </div>
+    <button class="mbtn" id="rulesClose">Close</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  const SYNC_URL = 'https://sxutwdrtrfjhwydarwry.supabase.co';
+  const SYNC_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4dXR3ZHJ0cmZqaHd5ZGFyd3J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NTE0MTAsImV4cCI6MjA4ODEyNzQxMH0.rn7H7EZ0WFU-a3MNU_lJy93sb-Jqv2VXM_tGn5TiorU';
+
+  // stable device identity so each phone owns its seat
+  let deviceId = localStorage.getItem('liars:device');
+  if (!deviceId) { deviceId = Math.random().toString(36).slice(2, 12); localStorage.setItem('liars:device', deviceId); }
+  let myName = localStorage.getItem('liars:name') || '';
+
+  const api = (path, opts = {}) => fetch(SYNC_URL + '/rest/v1/' + path, Object.assign({}, opts, {
+    headers: Object.assign({
+      'apikey': SYNC_ANON_KEY, 'Authorization': 'Bearer ' + SYNC_ANON_KEY, 'Content-Type': 'application/json',
+    }, opts.headers || {}),
+  }));
+
+  const status = document.getElementById('status');
+  const setStatus = (t, err) => { status.textContent = t || '\u00a0'; status.className = err ? 'err' : ''; };
+
+  function rollDie() {
+    const a = new Uint8Array(1);
+    do { crypto.getRandomValues(a); } while (a[0] >= 252);
+    return (a[0] % 6) + 1;
+  }
+  const rollN = n => Array.from({ length: n }, rollDie);
+  const newCode = () => { const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let c = 'L'; for (let i = 0; i < 3; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+
+  // game shape: { kind:'liars', seats:{A:{id,name,alive,dice},B:{...}|null},
+  //   round:{turn:'A'|'B', bids:[{seat,qty,face}], phase:'bid'|'reveal'|'over', loser, counted}, writer, ts }
+  let game = null, gameCode = '', lastSeenTs = '', view = 'list', peeking = false;
+  let bidQty = 1, bidFace = 2;
+
+  const mySeat = () => !game ? null : (game.seats.A && game.seats.A.id === deviceId ? 'A' : (game.seats.B && game.seats.B.id === deviceId ? 'B' : null));
+  const other = s => s === 'A' ? 'B' : 'A';
+
+  async function push() {
+    if (!gameCode || !game) return;
+    const ts = new Date().toISOString();
+    game.writer = deviceId; game.ts = ts;
+    try {
+      const r = await api('games?on_conflict=code', {
+        method: 'POST', headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify([{ code: gameCode, data: game, updated_at: ts }]),
+      });
+      if (r.ok) { lastSeenTs = ts; setStatus('Synced'); } else setStatus('Sync failed', true);
+    } catch (e) { setStatus('Offline', true); }
+  }
+
+  async function poll() {
+    if (!gameCode || document.hidden || view !== 'game') return;
+    try {
+      const r = await api('games?code=eq.' + encodeURIComponent(gameCode) + '&select=data,updated_at');
+      if (!r.ok) return;
+      const rows = await r.json();
+      if (!rows.length) return;
+      const row = rows[0];
+      if (row.data && row.data.writer !== deviceId && row.updated_at > lastSeenTs) {
+        lastSeenTs = row.updated_at; game = row.data; render();
+      }
+    } catch (e) {}
+  }
+  setInterval(poll, 2000);
+
+  function ensureName() {
+    if (!myName) {
+      myName = (prompt('Your name for this game?') || 'Player').trim().slice(0, 14) || 'Player';
+      localStorage.setItem('liars:name', myName);
+    }
+    return myName;
+  }
+
+  function freshRound(starter) {
+    ['A', 'B'].forEach(s => { if (game.seats[s]) game.seats[s].dice = rollN(game.seats[s].alive); });
+    game.round = { turn: starter, bids: [], phase: 'bid' };
+  }
+
+  function startGame() {
+    ensureName();
+    game = { kind: 'liars', seats: { A: { id: deviceId, name: myName, alive: 5, dice: rollN(5) }, B: null }, round: { turn: 'A', bids: [], phase: 'wait' }, writer: deviceId, ts: '' };
+    gameCode = newCode(); lastSeenTs = '';
+    view = 'game'; render(); push();
+  }
+
+  function joinOrOpen(code, data) {
+    gameCode = code; game = data; lastSeenTs = '';
+    if (!mySeat() && !game.seats.B) {
+      ensureName();
+      game.seats.B = { id: deviceId, name: myName, alive: 5, dice: rollN(5) };
+      if (game.round.phase === 'wait') game.round = { turn: 'A', bids: [], phase: 'bid' };
+      push();
+    }
+    view = 'game'; render();
+  }
+
+  // ---- bid mechanics ----
+  const lastBid = () => game.round.bids.length ? game.round.bids[game.round.bids.length - 1] : null;
+  function bidLegal(q, f) {
+    const lb = lastBid();
+    if (!lb) return q >= 1;
+    return q > lb.qty || (q === lb.qty && f > lb.face);
+  }
+  function minLegal() {
+    const lb = lastBid();
+    if (!lb) return [1, 2];
+    if (lb.face < 6) return [lb.qty, lb.face + 1];
+    return [lb.qty + 1, 2];
+  }
+  function placeBid() {
+    if (!bidLegal(bidQty, bidFace)) return;
+    game.round.bids.push({ seat: mySeat(), qty: bidQty, face: bidFace });
+    game.round.turn = other(mySeat());
+    render(); push();
+  }
+  function callLiar() {
+    const lb = lastBid(); if (!lb) return;
+    const all = [...game.seats.A.dice, ...game.seats.B.dice];
+    const counted = all.filter(d => d === lb.face || (lb.face !== 1 && d === 1)).length;
+    const bidHolds = counted >= lb.qty;
+    const loserSeat = bidHolds ? mySeat() : lb.seat;
+    game.round.phase = 'reveal';
+    game.round.counted = counted;
+    game.round.caller = mySeat();
+    game.round.loser = loserSeat;
+    render(); push();
+  }
+  function nextRound() {
+    const loserSeat = game.round.loser;
+    game.seats[loserSeat].alive -= 1;
+    if (game.seats[loserSeat].alive <= 0) {
+      game.round.phase = 'over';
+      game.winner = other(loserSeat);
+    } else {
+      freshRound(loserSeat);
+    }
+    render(); push();
+  }
+  function rematch() {
+    ['A', 'B'].forEach(s => { if (game.seats[s]) game.seats[s].alive = 5; });
+    delete game.winner;
+    freshRound('A');
+    render(); push();
+  }
+
+  // ---- rendering ----
+  const listPanel = document.getElementById('listPanel'), gamePanel = document.getElementById('gamePanel'), gameList = document.getElementById('gameList');
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const PIPS = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] };
+  function die(face, cls) {
+    const d = el('div', 'die' + (cls || ''));
+    for (let i = 0; i < 9; i++) d.appendChild(el('i', PIPS[face] && PIPS[face].includes(i) ? 'on' : ''));
+    return d;
+  }
+
+  function setView(v) {
+    view = v;
+    listPanel.style.display = v === 'list' ? '' : 'none';
+    gamePanel.style.display = v === 'game' ? '' : 'none';
+    document.getElementById('backBtn').style.display = v === 'game' ? '' : 'none';
+  }
+
+  function render() {
+    setView(view);
+    if (view !== 'game' || !game) return;
+    gamePanel.innerHTML = '';
+    const seat = mySeat();
+    const A = game.seats.A, B = game.seats.B;
+
+    if (!B) {
+      gamePanel.appendChild(el('div', 'note', 'Waiting for the other phone. They open Liar\u2019s Dice, tap this game in the list, and they\u2019re in.'));
+      gamePanel.appendChild(el('div', 'note', 'Game: <b>' + (A ? A.name : '') + '</b> \u00b7 waiting for opponent'));
+      return;
+    }
+    if (!seat) { gamePanel.appendChild(el('div', 'note', 'Both seats are taken on other devices \u2014 you\u2019re spectating. Scores update live.')); }
+
+    const me = seat ? game.seats[seat] : null;
+    const opp = seat ? game.seats[other(seat)] : B;
+
+    // opponent bar
+    const oppBar = el('div', 'opp');
+    oppBar.appendChild(el('div', '', '<div class="nm">' + opp.name + '</div><div class="cups">' + opp.alive + ' dice under the cup</div>'));
+    const oppDice = el('div', 'dicerow');
+    if (game.round.phase === 'reveal' || game.round.phase === 'over') opp.dice.forEach(f => oppDice.appendChild(die(f, ' mini')));
+    else for (let i = 0; i < opp.alive; i++) oppDice.appendChild(die(0, ' mini back'));
+    oppBar.appendChild(oppDice);
+    gamePanel.appendChild(oppBar);
+
+    // bid log
+    const log = el('div', 'bidlog');
+    if (!game.round.bids.length) log.appendChild(el('div', 'b', 'No bids yet this round.'));
+    game.round.bids.forEach(b => log.appendChild(el('div', 'b', game.seats[b.seat].name + ' bids <b>' + b.qty + ' \u00d7 ' + b.face + 's</b>')));
+    gamePanel.appendChild(log);
+
+    // phase-specific center
+    if (game.round.phase === 'reveal') {
+      const lb = lastBid();
+      const wrap = el('div', 'reveal');
+      const holds = game.round.counted >= lb.qty;
+      wrap.appendChild(el('div', 'verdict', game.seats[game.round.caller].name + ' called liar \u2014 there were <b>' + game.round.counted + '</b> (wilds included). ' +
+        (holds ? 'The bid held.' : 'The bid was a lie.') + ' <span style="color:var(--red)">' + game.seats[game.round.loser].name + ' loses a die.</span>'));
+      const btn = el('button', 'bigbtn', 'Next round');
+      btn.onclick = nextRound;
+      wrap.appendChild(btn);
+      gamePanel.appendChild(wrap);
+    } else if (game.round.phase === 'over') {
+      const wrap = el('div', 'reveal');
+      wrap.appendChild(el('div', 'verdict', game.seats[game.winner].name + ' wins \u2014 out of dice, out of lies.'));
+      const btn = el('button', 'bigbtn', 'Rematch');
+      btn.onclick = rematch;
+      wrap.appendChild(btn);
+      gamePanel.appendChild(wrap);
+    } else if (game.round.phase === 'bid') {
+      const myTurn = seat && game.round.turn === seat;
+      gamePanel.appendChild(el('div', 'turnline' + (myTurn ? ' me' : ''), myTurn ? 'Your turn \u2014 raise or call.' : game.seats[game.round.turn].name + ' is thinking\u2026'));
+
+      if (myTurn) {
+        const [mq, mf] = minLegal();
+        if (!bidLegal(bidQty, bidFace)) { bidQty = mq; bidFace = mf; }
+        const ctl = el('div', 'controls');
+        const steps = el('div', 'steppers');
+        const mk = (lab, get, set) => {
+          const g = el('div', 'stepgrp');
+          g.appendChild(el('div', 'lab', lab));
+          const line = el('div', 'stepline');
+          const dn = el('button', 'mini-b', '\u2212'); dn.onclick = () => { set(get() - 1); render(); };
+          const up = el('button', 'mini-b', '+'); up.onclick = () => { set(get() + 1); render(); };
+          line.appendChild(dn); line.appendChild(el('div', 'stepval', String(get()))); line.appendChild(up);
+          g.appendChild(line);
+          return g;
+        };
+        steps.appendChild(mk('How many', () => bidQty, v => { bidQty = Math.max(1, Math.min(10, v)); }));
+        steps.appendChild(mk('Face', () => bidFace, v => { bidFace = Math.max(1, Math.min(6, v)); }));
+        ctl.appendChild(steps);
+        const acts = el('div', 'actions');
+        const bid = el('button', 'bigbtn' + (bidLegal(bidQty, bidFace) ? '' : ' dim'), 'Bid ' + bidQty + ' \u00d7 ' + bidFace + 's');
+        bid.onclick = placeBid;
+        acts.appendChild(bid);
+        if (lastBid()) { const call = el('button', 'bigbtn callbtn', 'Liar!'); call.onclick = callLiar; acts.appendChild(call); }
+        ctl.appendChild(acts);
+        gamePanel.appendChild(ctl);
+      }
+    }
+
+    // my dice
+    if (me) {
+      const mine = el('div', 'mydice');
+      mine.appendChild(el('div', 'cups', 'Your dice \u2014 keep the phone close'));
+      const row = el('div', 'dicerow'); row.style.justifyContent = 'center';
+      me.dice.forEach(f => row.appendChild(die(peeking ? f : 0, peeking ? '' : ' back')));
+      mine.appendChild(row);
+      const pk = el('button', 'peek', peeking ? 'Hide dice' : 'Peek at dice');
+      pk.onclick = () => { peeking = !peeking; render(); };
+      mine.appendChild(pk);
+      gamePanel.appendChild(mine);
+    }
+  }
+
+  async function showList() {
+    setView('list');
+    gameList.innerHTML = '<div class="note">Loading games\u2026</div>';
+    try {
+      const r = await api('games?select=code,data,updated_at&order=updated_at.desc&limit=50');
+      if (!r.ok) throw new Error();
+      const rows = (await r.json()).filter(row => row.data && row.data.kind === 'liars');
+      if (!rows.length) { gameList.innerHTML = '<div class="note">No games yet. Start one and have the other phone tap it here.</div>'; return; }
+      gameList.innerHTML = '';
+      rows.forEach(row => {
+        const g = row.data, A = g.seats.A, B = g.seats.B;
+        const d = new Date(row.updated_at);
+        const when = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        const state = g.round.phase === 'over' ? (g.seats[g.winner].name + ' won') : !B ? 'waiting for opponent' : (A.alive + ' vs ' + B.alive + ' dice');
+        const rowEl = el('div', 'gamerow');
+        rowEl.innerHTML = '<div class="grow"><div class="who">' + A.name + (B ? ' vs ' + B.name : '') + '</div><div class="meta">' + state + ' \u00b7 ' + when + '</div></div>';
+        const del = el('button', 'del', '\u00d7');
+        del.onclick = async (e) => {
+          e.stopPropagation();
+          if (!confirm('Delete this game for everyone?')) return;
+          const dr = await api('games?code=eq.' + encodeURIComponent(row.code), { method: 'DELETE', headers: { 'Prefer': 'return=representation' } });
+          if (dr.ok && (await dr.json()).length > 0) rowEl.remove();
+        };
+        rowEl.appendChild(del);
+        rowEl.onclick = () => joinOrOpen(row.code, g);
+        gameList.appendChild(rowEl);
+      });
+    } catch (e) {
+      gameList.innerHTML = '<div class="note">Couldn\u2019t reach the game server \u2014 check signal and hit \u21bb.</div>';
+    }
+  }
+
+  document.getElementById('newBtn').onclick = startGame;
+  document.getElementById('backBtn').onclick = () => { gameCode = ''; game = null; showList(); };
+  document.getElementById('reloadBtn').onclick = () => location.reload();
+  document.getElementById('rulesBtn').onclick = () => document.getElementById('rulesModal').classList.add('open');
+  document.getElementById('rulesClose').onclick = () => document.getElementById('rulesModal').classList.remove('open');
+
+  showList();
+})();
+</script>
+</body>
+</html>
