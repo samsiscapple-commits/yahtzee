@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scorepad">
+<meta name="theme-color" content="#1F5F45">
+<title>Scorepad</title>
+<style>
+  :root {
+    --ink: #1D2B22; --felt: #1F5F45; --paper: #FBF8EF; --rule: #D9D2BF;
+    --red: #B5372A; --muted: #6C6A5E; --faint: #8A867A; --band: #F1ECDD;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--felt); color: var(--ink);
+    font-family: 'Avenir Next', 'Segoe UI', 'Helvetica Neue', system-ui, sans-serif; }
+  body { padding: calc(16px + env(safe-area-inset-top)) 0 140px; }
+  button { font-family: inherit; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--felt); outline-offset: 2px; }
+
+  header { padding: 0 16px 14px; display: flex; align-items: flex-end; justify-content: space-between; color: #F6F1E1; gap: 12px; }
+  header h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; margin: 0; }
+  header p { font-size: 13px; opacity: .8; margin: 4px 0 0; }
+  #status { margin-left: 8px; opacity: .7; }
+  #status.err { opacity: 1; color: #FFD3CC; }
+  .hbtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+  .hbtn { background: #F6F1E1; color: var(--felt); border: none; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 13px; }
+  .hbtn:disabled { background: rgba(255,255,255,.15); color: rgba(255,255,255,.5); cursor: default; }
+
+  .pad { margin: 0 12px; background: var(--paper); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+  .scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .grid { display: grid; min-width: 100%; width: max-content; }
+  .row { display: contents; }
+  .lbl, .cell { border-bottom: 1px solid var(--rule); min-height: 44px; display: flex; align-items: center; }
+  .lbl { position: sticky; left: 0; z-index: 1; background: var(--paper); padding: 0 10px; gap: 10px; font-size: 14px; font-weight: 500; line-height: 1.15; }
+  .lbl small { display: block; font-size: 11px; font-weight: 400; color: var(--faint); }
+  .lbl.muted { color: var(--muted); }
+  .row.strong .lbl, .row.strong .cell { background: var(--band); font-weight: 700; }
+  .row.strong .lbl { font-size: 16px; }
+  .cell { justify-content: center; border-left: 1px solid var(--rule); font-variant-numeric: tabular-nums; font-size: 18px; }
+  .cell.total { font-weight: 600; font-size: 17px; }
+  .row.strong .cell.total { font-weight: 800; font-size: 20px; }
+  .box { width: 100%; height: 44px; border: none; background: transparent; color: var(--ink); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .box.filled { background: #fff; }
+  .box.zero { color: var(--red); }
+  .box.active { background: #DCEBE2; box-shadow: inset 0 0 0 2px var(--felt); }
+  .dot { color: var(--rule); font-size: 20px; font-weight: 400; }
+  .head { border-bottom: 2px solid var(--ink) !important; min-height: 56px; }
+  .head.cell { flex-direction: column; gap: 2px; padding: 4px; }
+  .pname { background: none; border: none; font-weight: 700; font-size: 14px; color: var(--ink); padding: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pmeta { display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--muted); }
+  .pmeta button { background: none; border: none; color: #9A968A; font-size: 14px; padding: 0; line-height: 1; }
+  .pname-input { width: 100%; font-size: 14px; padding: 4px 6px; border: 1px solid var(--felt); border-radius: 6px; }
+  .band { grid-column: 1 / -1; height: 8px; background: #EFE9D8; border-bottom: 1px solid var(--rule); }
+  .die { width: 22px; height: 22px; border-radius: 4px; background: #FFFDF7; border: 1.5px solid var(--ink); display: grid; grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); padding: 3px; flex-shrink: 0; }
+  .die i { display: block; }
+  .die i.on { background: var(--ink); border-radius: 50%; width: 3.5px; height: 3.5px; margin: auto; }
+  .stepper { display: flex; align-items: center; gap: 6px; }
+  .stepper span { font-weight: 700; font-size: 16px; min-width: 14px; text-align: center; }
+  .mini { width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid var(--ink); background: #fff; color: var(--ink); font-size: 16px; line-height: 1; padding: 0; }
+  .green { color: var(--felt) !important; }
+  .redtxt { color: var(--red) !important; }
+  .greytxt { color: var(--faint) !important; }
+  .gamerow { display: flex; align-items: center; gap: 10px; padding: 12px 10px; border-bottom: 1px solid var(--rule); }
+  .gamerow .grow { flex: 1; min-width: 0; }
+  .gamerow .who { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gamerow .meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .gamerow .score { font-variant-numeric: tabular-nums; font-weight: 800; font-size: 17px; }
+  .gamerow .del { background: none; border: none; color: #9A968A; font-size: 18px; padding: 4px 6px; }
+  .listwrap { padding: 6px 14px 14px; }
+  .listhead { font-weight: 800; font-size: 17px; padding: 12px 4px 4px; }
+  .listnote { font-size: 13px; color: var(--muted); padding: 10px 4px; }
+  .newgamebtn { width: 100%; height: 48px; margin-top: 12px; border-radius: 10px; border: none; background: var(--felt); color: #F6F1E1; font-weight: 800; font-size: 16px; }
+  .banner { padding: 10px 14px; background: var(--felt); color: #F6F1E1; font-weight: 700; font-size: 15px; }
+  .head.cell.turn { background: var(--felt); }
+  .head.cell.turn .pname, .head.cell.turn .pmeta { color: #F6F1E1; }
+  .head.cell.turn .pmeta button { color: #CFE3D6; }
+  .cell.turncol { background: #C9E1D2; }
+  .turncol .box.filled { background: #EFF7F0; }
+  .cell.turncol, .turncol .box:not(.active) { box-shadow: inset 2px 0 0 var(--felt), inset -2px 0 0 var(--felt); }
+  .codebig { font-family: ui-monospace, Menlo, monospace; font-size: 34px; font-weight: 800; letter-spacing: 6px; text-align: center; padding: 10px 0; }
+  .joinrow { display: flex; gap: 8px; }
+  .joinrow input { flex: 1; font-family: ui-monospace, Menlo, monospace; font-size: 20px; text-transform: uppercase; letter-spacing: 4px; text-align: center; padding: 8px; border: 1px solid var(--rule); border-radius: 8px; }
+
+  .sheet { position: fixed; left: 0; right: 0; bottom: 0; background: var(--paper); border-top: 2px solid var(--ink);
+    padding: 12px 16px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -8px 24px rgba(0,0,0,.25); z-index: 10; display: none; }
+  .sheet.open { display: block; }
+  .sheet-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: 700; font-size: 15px; }
+  .sheet-top button { background: none; border: none; font-size: 14px; color: var(--muted); }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .opt { min-width: 48px; height: 44px; padding: 0 12px; border-radius: 8px; border: 1.5px solid var(--ink); background: #fff; color: var(--ink); font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .opt.wide { min-width: 96px; }
+  .opt.scratch { border-color: var(--red); color: var(--red); }
+  .opt.current { background: var(--felt); color: #fff; }
+  .opt.scratch.current { background: var(--red); }
+  .opt.clear { border: 1.5px dashed #9A968A; color: var(--muted); background: transparent; font-size: 15px; font-weight: 400; }
+
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; align-items: flex-end; z-index: 20; }
+  .modal.open { display: flex; }
+  .modal-card { background: var(--paper); width: 100%; border-radius: 14px 14px 0 0; padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
+  .modal-card h2 { margin: 0 0 6px; font-size: 18px; }
+  .modal-card p { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+  .modal-card textarea { width: 100%; height: 110px; font-family: ui-monospace, Menlo, monospace; font-size: 12px; padding: 8px; border: 1px solid var(--rule); border-radius: 8px; resize: none; }
+  .modal-btns { display: flex; gap: 8px; margin-top: 10px; }
+  .mbtn { flex: 1; height: 44px; border-radius: 8px; border: 1.5px solid var(--ink); background: #fff; font-weight: 700; font-size: 15px; }
+  .mbtn.primary { background: var(--felt); color: #fff; border-color: var(--felt); }
+  .mbtn.ghost { border-color: #9A968A; color: var(--muted); }
+  #msg { font-size: 13px; margin-top: 8px; min-height: 18px; color: var(--felt); }
+  #msg.err { color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Scorepad</h1>
+    <p>Five dice, thirteen rounds. Tap a box to score it.<span id="status"></span></p>
+  </div>
+  <div class="hbtns">
+    <button class="hbtn" id="addBtn">+ Player</button>
+    <button class="hbtn" id="backupBtn">Backup</button>
+    <button class="hbtn" id="shareBtn" style="display:none">Share</button>
+    <button class="hbtn" id="newBtn">Games</button>
+  </div>
+</header>
+
+<div class="pad" id="listPad" style="display:none">
+  <div class="listwrap">
+    <div class="listhead">Games</div>
+    <div id="gameList"><div class="listnote">Loading games…</div></div>
+    <button class="newgamebtn" id="newGameBtn">+ New game</button>
+  </div>
+</div>
+
+<div class="pad" id="padWrap">
+  <div class="scroll"><div class="grid" id="grid"></div></div>
+  <div class="banner" id="banner" style="display:none"></div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-top"><span id="sheetTitle"></span><button id="sheetClose">Close</button></div>
+  <div class="opts" id="opts"></div>
+</div>
+
+<div class="modal" id="shareModal">
+  <div class="modal-card">
+    <h2>Play across phones</h2>
+    <div id="shareBody"></div>
+    <div id="shareMsg" style="font-size:13px;margin-top:8px;min-height:18px;color:var(--felt)"></div>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="modal-card">
+    <h2>Backup &amp; restore</h2>
+    <p>Copy this code into Notes to keep a backup. Paste a saved code here and tap Restore to bring a game back.</p>
+    <textarea id="backupText" spellcheck="false"></textarea>
+    <div class="modal-btns">
+      <button class="mbtn" id="copyBtn">Copy code</button>
+      <button class="mbtn primary" id="restoreBtn">Restore</button>
+      <button class="mbtn ghost" id="modalClose">Close</button>
+    </div>
+    <div id="msg"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const KEY = 'scorepad:current';
+  // ---- LIVE SYNC CONFIG: paste your Supabase values here, re-upload, done ----
+  const SYNC_URL = 'https://sxutwdrtrfjhwydarwry.supabase.co';
+  const SYNC_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4dXR3ZHJ0cmZqaHd5ZGFyd3J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NTE0MTAsImV4cCI6MjA4ODEyNzQxMH0.rn7H7EZ0WFU-a3MNU_lJy93sb-Jqv2VXM_tGn5TiorU';
+  const SYNC_ON = () => SYNC_URL && SYNC_ANON_KEY;
+  const UPPER = [
+    { id:'ones',   label:'Ones',   face:1 }, { id:'twos',  label:'Twos',  face:2 },
+    { id:'threes', label:'Threes', face:3 }, { id:'fours', label:'Fours', face:4 },
+    { id:'fives',  label:'Fives',  face:5 }, { id:'sixes', label:'Sixes', face:6 },
+  ];
+  const LOWER = [
+    { id:'three',      label:'Three of a kind', hint:'sum of all dice', type:'sum' },
+    { id:'four',       label:'Four of a kind',  hint:'sum of all dice', type:'sum' },
+    { id:'fullHouse',  label:'Full house',      hint:'25', type:'fixed', value:25 },
+    { id:'smStraight', label:'Small straight',  hint:'30', type:'fixed', value:30 },
+    { id:'lgStraight', label:'Large straight',  hint:'40', type:'fixed', value:40 },
+    { id:'fiveKind',   label:'Five of a kind',  hint:'50', type:'fixed', value:50 },
+    { id:'chance',     label:'Chance',          hint:'sum of all dice', type:'sum' },
+  ];
+  const CATS = UPPER.concat(LOWER);
+  const IDS = CATS.map(c => c.id);
+  const PIPS = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] };
+
+  const blank = () => { const s = {}; IDS.forEach(id => s[id] = null); return s; };
+  const mkPlayer = name => ({ name, scores: blank(), extraFives: 0 });
+
+  let players = [mkPlayer('Player 1'), mkPlayer('Player 2')];
+  let picker = null;    // { p, cat }
+  let renaming = null;  // player index
+
+  // ---- scoring ----
+  const upperSum   = p => UPPER.reduce((s,c) => s + (p.scores[c.id] ?? 0), 0);
+  const upperBonus = p => upperSum(p) >= 63 ? 35 : 0;
+  const upperPar   = p => UPPER.filter(c => p.scores[c.id] !== null).reduce((d,c) => d + (p.scores[c.id] - 3*c.face), 0);
+  const lowerSum   = p => LOWER.reduce((s,c) => s + (p.scores[c.id] ?? 0), 0) + p.extraFives*100;
+  const total      = p => upperSum(p) + upperBonus(p) + lowerSum(p);
+  const filled     = p => IDS.filter(id => p.scores[id] !== null).length;
+
+  // ---- storage ----
+  const status = document.getElementById('status');
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify({ players, savedAt: Date.now() }));
+      status.textContent = 'Saved'; status.className = '';
+      if (typeof schedulePush === 'function') schedulePush();
+    } catch (e) {
+      status.textContent = "Couldn't save"; status.className = 'err';
+    }
+  }
+  function normalize(list) {
+    return list.map(p => ({
+      name: String(p.name || 'Player'),
+      scores: Object.assign(blank(), p.scores || {}),
+      extraFives: Number(p.extraFives) || 0,
+    }));
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed.players) && parsed.players.length) players = normalize(parsed.players);
+    } catch (e) { /* corrupt or missing — start fresh */ }
+  }
+
+  // ---- render ----
+  const grid = document.getElementById('grid');
+  const banner = document.getElementById('banner');
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html !== undefined) e.innerHTML = html; return e; };
+
+  function die(face) {
+    const d = el('div', 'die');
+    for (let i = 0; i < 9; i++) d.appendChild(el('i', PIPS[face].includes(i) ? 'on' : ''));
+    return d;
+  }
+
+  function render() {
+    const n = players.length;
+    // whose turn: fewest boxes filled; ties go to the leftmost player
+    let turnIdx = -1;
+    if (n > 1) {
+      const counts = players.map(filled);
+      if (counts.some(c => c < IDS.length)) turnIdx = counts.indexOf(Math.min(...counts));
+    }
+    const cellW = n <= 2 ? 88 : n <= 3 ? 72 : n <= 4 ? 60 : 52;
+    grid.style.gridTemplateColumns = `132px repeat(${n}, minmax(${cellW}px, 1fr))`;
+    grid.innerHTML = '';
+
+    // header row
+    const hl = el('div', 'lbl head'); grid.appendChild(hl);
+    players.forEach((p, i) => {
+      const c = el('div', 'cell head' + (i === turnIdx ? ' turn' : ''));
+      if (renaming === i) {
+        const inp = el('input', 'pname-input'); inp.value = p.name;
+        const commit = () => { p.name = inp.value.trim() || p.name; renaming = null; save(); render(); };
+        inp.addEventListener('blur', commit);
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+        c.appendChild(inp); setTimeout(() => inp.focus(), 0);
+      } else {
+        const b = el('button', 'pname', p.name); b.title = 'Tap to rename';
+        b.onclick = () => { renaming = i; render(); };
+        c.appendChild(b);
+      }
+      const meta = el('div', 'pmeta', `<span>${filled(p)}/13</span>`);
+      if (n > 1) {
+        const x = el('button', '', '×'); x.setAttribute('aria-label', 'Remove ' + p.name);
+        x.onclick = () => { if (filled(p) === 0 || confirm(`Remove ${p.name} and their scores?`)) { players.splice(i,1); picker = null; renaming = null; save(); render(); } };
+        meta.appendChild(x);
+      }
+      c.appendChild(meta); grid.appendChild(c);
+    });
+
+    const scoreRow = cat => {
+      const l = el('div', 'lbl');
+      if (cat.face) { l.appendChild(die(cat.face)); l.appendChild(el('span', '', cat.label)); }
+      else l.innerHTML = `<div>${cat.label}<small>${cat.hint}</small></div>`;
+      grid.appendChild(l);
+      players.forEach((p, i) => {
+        const c = el('div', 'cell' + (i === turnIdx ? ' turncol' : ''));
+        const v = p.scores[cat.id];
+        const b = el('button', 'box');
+        if (v === null) b.innerHTML = '<span class="dot">·</span>';
+        else { b.textContent = v === 0 ? '—' : v; b.classList.add('filled'); if (v === 0) b.classList.add('zero'); }
+        if (picker && picker.p === i && picker.cat.id === cat.id) b.classList.add('active');
+        b.setAttribute('aria-label', `${p.name}, ${cat.label}`);
+        b.onclick = () => { picker = (picker && picker.p === i && picker.cat.id === cat.id) ? null : { p: i, cat }; render(); };
+        c.appendChild(b); grid.appendChild(c);
+      });
+    };
+    const totalRow = (label, fn, opts = {}) => {
+      const l = el('div', 'lbl' + (opts.muted ? ' muted' : ''), label);
+      const cells = players.map(fn);
+      const wrap = el('div', 'row' + (opts.strong ? ' strong' : ''));
+      wrap.appendChild(l); cells.forEach(c => wrap.appendChild(c));
+      grid.appendChild(wrap);
+    };
+    const tcell = (txt, cls) => el('div', 'cell total' + (cls ? ' ' + cls : ''), txt);
+
+    UPPER.forEach(scoreRow);
+    totalRow('Upper total', p => tcell(upperSum(p)), { muted: true });
+    totalRow('Bonus <span style="font-weight:400;font-size:12px">(par 63)</span>', p => {
+      if (upperBonus(p)) return tcell(35, 'green');
+      const any = UPPER.some(c => p.scores[c.id] !== null);
+      if (!any) return tcell('<span class="dot">·</span>');
+      const d = upperPar(p);
+      return tcell(d === 0 ? 'E' : d > 0 ? '+' + d : String(d), d < 0 ? 'redtxt' : d > 0 ? 'green' : 'greytxt');
+    }, { muted: true });
+
+    grid.appendChild(el('div', 'band'));
+    LOWER.forEach(scoreRow);
+
+    totalRow('<div>Extra five of a kind<small>100 each</small></div>', (p, i) => {
+      const c = el('div', 'cell');
+      if (p.scores.fiveKind === 50) {
+        const s = el('div', 'stepper');
+        const minus = el('button', 'mini', '−'); minus.onclick = () => { p.extraFives = Math.max(0, p.extraFives - 1); save(); render(); };
+        const plus  = el('button', 'mini', '+'); plus.onclick  = () => { p.extraFives += 1; save(); render(); };
+        s.appendChild(minus); s.appendChild(el('span', '', p.extraFives)); s.appendChild(plus);
+        c.appendChild(s);
+      } else c.innerHTML = '<span class="dot">·</span>';
+      return c;
+    });
+    totalRow('Lower total', p => tcell(lowerSum(p)), { muted: true });
+
+    const totals = players.map(total);
+    const max = Math.max(...totals);
+    const anyScored = players.some(p => filled(p) > 0);
+    totalRow('Grand total', (p, i) => tcell(totals[i], anyScored && n > 1 && totals[i] === max ? 'green' : ''), { strong: true });
+
+    // winner banner
+    const allDone = players.every(p => filled(p) === IDS.length);
+    if (allDone && n > 1) {
+      const sorted = totals.slice().sort((a,b) => b - a);
+      const leaders = players.filter((_, i) => totals[i] === max).map(p => p.name);
+      banner.textContent = leaders.length > 1
+        ? `Tie: ${leaders.join(' and ')} at ${max}`
+        : `${leaders[0]} wins by ${sorted[0] - sorted[1]} (${max} to ${sorted[1]})`;
+      banner.style.display = '';
+    } else banner.style.display = 'none';
+
+    document.getElementById('addBtn').disabled = n >= 6;
+    renderSheet();
+  }
+
+  // ---- picker sheet ----
+  const sheet = document.getElementById('sheet'), opts = document.getElementById('opts'), sheetTitle = document.getElementById('sheetTitle');
+  function renderSheet() {
+    if (!picker) { sheet.classList.remove('open'); return; }
+    const p = players[picker.p], cat = picker.cat, cur = p.scores[cat.id];
+    sheetTitle.textContent = `${p.name}: ${cat.label}`;
+    let values;
+    if (cat.face) values = [0,1,2,3,4,5].map(k => k * cat.face);
+    else if (cat.type === 'fixed') values = [cat.value, 0];
+    else { values = []; for (let v = 5; v <= 30; v++) values.push(v); values.push(0); }
+    opts.innerHTML = '';
+    values.forEach(v => {
+      const b = el('button', 'opt' + (v === 0 ? ' scratch wide' : cat.type === 'sum' ? '' : ' wide') + (cur === v ? ' current' : ''), v === 0 ? 'Scratch' : v);
+      b.onclick = () => setScore(picker.p, cat.id, v);
+      opts.appendChild(b);
+    });
+    if (cur !== null) {
+      const b = el('button', 'opt clear wide', 'Clear box');
+      b.onclick = () => setScore(picker.p, cat.id, null);
+      opts.appendChild(b);
+    }
+    sheet.classList.add('open');
+  }
+  function setScore(pi, catId, v) {
+    const p = players[pi];
+    p.scores[catId] = v;
+    if (catId === 'fiveKind' && v !== 50) p.extraFives = 0;
+    picker = null; save(); render();
+  }
+  document.getElementById('sheetClose').onclick = () => { picker = null; render(); };
+
+  // ---- header buttons ----
+  document.getElementById('addBtn').onclick = () => {
+    if (players.length >= 6) return;
+    players.push(mkPlayer('Player ' + (players.length + 1))); save(); render();
+  };
+  document.getElementById('newBtn').onclick = () => showList();
+
+  // ---- backup / restore ----
+  const modal = document.getElementById('modal'), ta = document.getElementById('backupText'), msg = document.getElementById('msg');
+  const note = (t, err) => { msg.textContent = t; msg.className = err ? 'err' : ''; };
+  document.getElementById('backupBtn').onclick = () => {
+    ta.value = btoa(unescape(encodeURIComponent(JSON.stringify({ players }))));
+    note(''); modal.classList.add('open');
+  };
+  document.getElementById('modalClose').onclick = () => modal.classList.remove('open');
+  document.getElementById('copyBtn').onclick = async () => {
+    try { await navigator.clipboard.writeText(ta.value); note('Copied. Paste it into Notes.'); }
+    catch (e) { ta.select(); note('Select the code and copy it manually.', true); }
+  };
+  document.getElementById('restoreBtn').onclick = () => {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(escape(atob(ta.value.trim()))));
+      if (!Array.isArray(parsed.players) || !parsed.players.length) throw new Error();
+      if (players.some(p => filled(p) > 0) && !confirm('Replace the current game with this backup?')) return;
+      players = normalize(parsed.players); picker = null; save(); render();
+      modal.classList.remove('open');
+    } catch (e) { note("That code isn't a valid backup.", true); }
+  };
+
+  // ---- live sync (Supabase REST, plain fetch, no libraries) ----
+  const CODEKEY = 'scorepad:code';
+  const myId = Math.random().toString(36).slice(2, 10);
+  let gameCode = localStorage.getItem(CODEKEY) || '';
+  let pushTimer = null, applying = false, lastSeenTs = '';
+
+  const api = (path, opts = {}) => fetch(SYNC_URL + '/rest/v1/' + path, Object.assign({}, opts, {
+    headers: Object.assign({
+      'apikey': SYNC_ANON_KEY,
+      'Authorization': 'Bearer ' + SYNC_ANON_KEY,
+      'Content-Type': 'application/json',
+    }, opts.headers || {}),
+  }));
+
+  function schedulePush() {
+    if (!SYNC_ON() || !gameCode || applying) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(async () => {
+      try {
+        const ts = new Date().toISOString();
+        const r = await api('games?on_conflict=code', {
+          method: 'POST',
+          headers: { 'Prefer': 'resolution=merge-duplicates' },
+          body: JSON.stringify([{ code: gameCode, data: { players, writer: myId, ts }, updated_at: ts }]),
+        });
+        if (r.ok) { lastSeenTs = ts; status.textContent = 'Synced'; status.className = ''; }
+        else { status.textContent = "Sync failed"; status.className = 'err'; }
+      } catch (e) { status.textContent = 'Offline'; status.className = 'err'; }
+    }, 600);
+  }
+
+  async function pollRemote() {
+    if (!SYNC_ON() || !gameCode || document.hidden || view !== 'pad') return;
+    try {
+      const r = await api('games?code=eq.' + encodeURIComponent(gameCode) + '&select=data,updated_at');
+      if (!r.ok) return;
+      const rows = await r.json();
+      if (!rows.length) return;
+      const row = rows[0];
+      if (row.data && row.data.writer !== myId && row.updated_at > lastSeenTs) {
+        lastSeenTs = row.updated_at;
+        applying = true;
+        players = normalize(row.data.players);
+        try { localStorage.setItem(KEY, JSON.stringify({ players, savedAt: Date.now() })); } catch (e) {}
+        render();
+        applying = false;
+      }
+    } catch (e) { /* offline; try again next tick */ }
+  }
+  setInterval(pollRemote, 3000);
+
+  const newCode = () => { const A = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; let c = ''; for (let i = 0; i < 4; i++) c += A[Math.floor(Math.random() * A.length)]; return c; };
+
+  const shareModal = document.getElementById('shareModal'), shareBody = document.getElementById('shareBody'), shareMsg = document.getElementById('shareMsg');
+  function renderShare() {
+    shareMsg.textContent = '';
+    if (gameCode) {
+      shareBody.innerHTML = '<p>Both phones on this code see the same game. Give Alexis the code; she taps Share, enters it, and joins.</p>' +
+        '<div class="codebig">' + gameCode + '</div>' +
+        '<div class="modal-btns"><button class="mbtn" id="leaveBtn">Leave shared game</button><button class="mbtn ghost" id="shareClose">Close</button></div>';
+      document.getElementById('leaveBtn').onclick = () => {
+        gameCode = ''; localStorage.removeItem(CODEKEY); renderShare();
+      };
+    } else {
+      shareBody.innerHTML = '<p>Start a shared game with the scores on this phone, or join one with a code from the other phone.</p>' +
+        '<div class="modal-btns"><button class="mbtn primary" id="createBtn">Create code</button></div>' +
+        '<div style="height:10px"></div><div class="joinrow"><input id="joinInput" maxlength="4" placeholder="CODE" autocapitalize="characters"><button class="mbtn" style="flex:0 0 90px" id="joinBtn">Join</button></div>' +
+        '<div class="modal-btns"><button class="mbtn ghost" id="shareClose">Close</button></div>';
+      document.getElementById('createBtn').onclick = () => {
+        gameCode = newCode(); localStorage.setItem(CODEKEY, gameCode);
+        schedulePush(); renderShare();
+      };
+      document.getElementById('joinBtn').onclick = async () => {
+        const code = document.getElementById('joinInput').value.trim().toUpperCase();
+        if (code.length !== 4) { shareMsg.textContent = 'Codes are 4 characters.'; shareMsg.style.color = 'var(--red)'; return; }
+        try {
+          const r = await api('games?code=eq.' + encodeURIComponent(code) + '&select=data,updated_at');
+          const rows = r.ok ? await r.json() : [];
+          if (!rows.length) { shareMsg.textContent = 'No game found with that code.'; shareMsg.style.color = 'var(--red)'; return; }
+          if (players.some(p => filled(p) > 0) && !confirm('Joining replaces the game on this phone. Continue?')) return;
+          gameCode = code; localStorage.setItem(CODEKEY, code);
+          lastSeenTs = ''; await pollRemote();
+          shareModal.classList.remove('open'); render();
+        } catch (e) { shareMsg.textContent = 'Could not reach the server.'; shareMsg.style.color = 'var(--red)'; }
+      };
+    }
+    const closer = document.getElementById('shareClose');
+    if (closer) closer.onclick = () => shareModal.classList.remove('open');
+  }
+  // ---- list / pad views ----
+  const listPad = document.getElementById('listPad'), padWrap = document.getElementById('padWrap');
+  const gameList = document.getElementById('gameList');
+  let view = 'pad';
+  function setView(v) {
+    view = v;
+    listPad.style.display = v === 'list' ? '' : 'none';
+    padWrap.style.display = v === 'pad' ? '' : 'none';
+    document.getElementById('addBtn').style.display = v === 'pad' ? '' : 'none';
+    document.getElementById('backupBtn').style.display = v === 'pad' ? '' : 'none';
+    document.getElementById('newBtn').style.display = v === 'pad' ? '' : 'none';
+  }
+
+  function openGame(code, plist) {
+    gameCode = code; localStorage.setItem(CODEKEY, code);
+    players = normalize(plist); picker = null; lastSeenTs = '';
+    applying = true; save(); applying = false; // cache locally without echo-pushing
+    setView('pad'); render(); pollRemote();
+  }
+
+  let lastNames = null;
+  async function showList() {
+    setView('list');
+    gameList.innerHTML = '<div class="listnote">Loading games\u2026</div>';
+    try {
+      const r = await api('games?select=code,data,updated_at&order=updated_at.desc&limit=50');
+      if (!r.ok) throw new Error();
+      const rows = await r.json();
+      if (!rows.length) { gameList.innerHTML = '<div class="listnote">No games yet. Start one below.</div>'; return; }
+      lastNames = (rows[0].data && rows[0].data.players || []).map(p => p.name);
+      gameList.innerHTML = '';
+      rows.forEach(row => {
+        const ps = normalize((row.data && row.data.players) || []);
+        if (!ps.length) return;
+        const totals = ps.map(total);
+        const done = ps.every(p => filled(p) === IDS.length);
+        const fills = ps.map(filled).reduce((a, b) => a + b, 0);
+        const d = new Date(row.updated_at);
+        const when = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        const rowEl = el('div', 'gamerow');
+        rowEl.innerHTML = '<div class="grow"><div class="who">' + ps.map(p => p.name).join(' vs ') + '</div>' +
+          '<div class="meta">' + (done ? 'Final' : fills + '/' + IDS.length * ps.length + ' boxes') + ' \u00b7 ' + when + '</div></div>' +
+          '<div class="score">' + totals.join('\u2013') + '</div>';
+        const del = el('button', 'del', '\u00d7'); del.setAttribute('aria-label', 'Delete game');
+        del.onclick = async (e) => {
+          e.stopPropagation();
+          if (!confirm('Delete this game for everyone? No undo.')) return;
+          const dr = await api('games?code=eq.' + encodeURIComponent(row.code), { method: 'DELETE', headers: { 'Prefer': 'return=representation' } });
+          const gone = dr.ok && (await dr.json()).length > 0;
+          if (gone) rowEl.remove();
+          else alert('Delete failed \u2014 the delete policy SQL has not been run yet.');
+        };
+        rowEl.appendChild(del);
+        rowEl.onclick = () => openGame(row.code, ps);
+        gameList.appendChild(rowEl);
+      });
+    } catch (e) {
+      gameList.innerHTML = '<div class="listnote">Couldn\u2019t reach the game server. Check signal, then reopen \u2014 or resume the game saved on this phone below.</div>';
+      const resume = el('button', 'newgamebtn', 'Resume local game');
+      resume.style.background = '#8A867A';
+      resume.onclick = () => { load(); setView('pad'); render(); };
+      gameList.appendChild(resume);
+    }
+  }
+
+  document.getElementById('newGameBtn').onclick = () => {
+    const names = (lastNames && lastNames.length) ? lastNames : ['Player 1', 'Player 2'];
+    openGame(newCode(), names.map(mkPlayer));
+    schedulePush();
+  };
+
+  // startup: land on the list; fall back to local game if offline
+  load();
+  render();
+  showList();
+})();
+</script>
+</body>
+</html>
