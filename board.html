@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="The Board">
+<meta name="theme-color" content="#1F5F45">
+<link rel="apple-touch-icon" href="icon.png">
+<title>The Board</title>
+<style>
+ :root{--ink:#1D2B22;--paper:#FBF8EF;--felt:#1F5F45;--red:#B5372A;--muted:#6C6A5E;--rule:#D9D2BF;--band:#EFE9D8}
+ *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+ body{margin:0;background:var(--felt);color:var(--ink);font-family:'Avenir Next','Segoe UI',system-ui,sans-serif;
+  padding:calc(18px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))}
+ header{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+ h1{color:#F6F1E1;font-size:27px;margin:0;letter-spacing:-.5px}
+ .sub{color:#F6F1E1;opacity:.72;font-size:12px;margin-top:4px}
+ .hbtn{background:#F6F1E1;color:var(--felt);border:none;border-radius:8px;padding:8px 12px;font-weight:700;font-size:13px;font-family:inherit}
+ .card{background:var(--paper);border-radius:12px;padding:15px;margin-top:14px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+ h2{font-size:15px;margin:0 0 3px}
+ .hint{font-size:11.5px;color:var(--muted);margin:0 0 12px;line-height:1.45}
+ .vs{display:flex;align-items:center;justify-content:space-around;text-align:center;padding:4px 0 10px}
+ .vs .n{font-size:13px;font-weight:700;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .vs .w{font-size:40px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+ .vs .dash{color:var(--rule);font-size:26px;font-weight:800}
+ .vs .lead .w{color:var(--felt)}
+ .srow{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid var(--rule)}
+ .srow .k{flex:1;font-size:13px}
+ .srow .v{font-variant-numeric:tabular-nums;font-weight:800;font-size:15px;text-align:right;min-width:56px}
+ .srow .v.red{color:var(--red)}
+ .srow .v.green{color:var(--felt)}
+ .bars{padding-top:4px}
+ .brow{display:flex;align-items:center;gap:9px;padding:5px 0}
+ .brow .face{width:24px;font-weight:800;font-size:14px}
+ .bar{flex:1;height:20px;background:var(--band);border-radius:5px;position:relative;overflow:hidden}
+ .fill{position:absolute;inset:0 auto 0 0;border-radius:5px;background:var(--felt)}
+ .fill.b{background:#7FA88F}
+ .par{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--red)}
+ .bnum{width:88px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted)}
+ .bnum b{color:var(--ink);font-size:14px}
+ .legend{font-size:11.5px;color:var(--muted);border-top:1px solid var(--rule);padding-top:9px;margin-top:9px;line-height:1.45}
+ .chips{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+ .chip{background:var(--band);border-radius:9px;padding:11px}
+ .chip b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+ .chip span{font-size:11px;color:var(--muted)}
+ .chip.hot b{color:var(--red)}
+ .streak{font-size:13px;padding:8px 0 0}
+ .empty{font-size:13px;color:var(--muted);padding:10px 0;line-height:1.5}
+ .links{text-align:center;padding-top:16px}
+ .links a{color:#F6F1E1;font-weight:700;font-size:13px;text-decoration:underline;padding:6px 10px;display:inline-block}
+ .spark{display:flex;gap:3px;align-items:flex-end;height:38px;padding-top:6px}
+ .spark div{flex:1;background:var(--felt);border-radius:2px 2px 0 0;min-height:2px}
+ .spark div.lose{background:#C4BCA8}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>The Board</h1><div class="sub" id="sub">reading the table&hellip;</div></div>
+  <button class="hbtn" id="refresh">&#8635;</button>
+</header>
+<div id="out"></div>
+<div class="links"><a href="index.html">Scorepad</a><a href="liars.html">Liar's Dice</a><a href="odds.html">The Odds</a></div>
+
+<script>
+(function(){
+  const URL_='https://sxutwdrtrfjhwydarwry.supabase.co';
+  const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4dXR3ZHJ0cmZqaHd5ZGFyd3J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NTE0MTAsImV4cCI6MjA4ODEyNzQxMH0.rn7H7EZ0WFU-a3MNU_lJy93sb-Jqv2VXM_tGn5TiorU';
+  const UPPER=[['ones',1],['twos',2],['threes',3],['fours',4],['fives',5],['sixes',6]];
+  const LOWER=['three','four','fullHouse','smStraight','lgStraight','fiveKind','chance'];
+  const out=document.getElementById('out'), sub=document.getElementById('sub');
+  const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!==undefined)e.innerHTML=h;return e;};
+
+  const total=p=>{
+    const us=UPPER.reduce((s,[id])=>s+(p.scores[id]??0),0);
+    const bonus=us>=63?35:0;
+    const ls=LOWER.reduce((s,id)=>s+(p.scores[id]??0),0)+(p.extraFives||0)*100;
+    return us+bonus+ls;
+  };
+  const done=p=>UPPER.every(([id])=>p.scores[id]!==null)&&LOWER.every(id=>p.scores[id]!==null);
+
+  async function load(){
+    sub.textContent='reading the table\u2026';
+    let rows=[];
+    try{
+      const r=await fetch(URL_+'/rest/v1/games?select=data,updated_at&order=updated_at.asc&limit=500',
+        {headers:{apikey:KEY,Authorization:'Bearer '+KEY}});
+      rows=await r.json();
+    }catch(e){ out.innerHTML='<div class="card"><div class="empty">Couldn\u2019t reach the table. Check signal and hit \u21bb.</div></div>'; sub.textContent='offline'; return; }
+
+    // finished classic-style games only (skip liars dice + unfinished)
+    const games=rows.filter(r=>r.data&&r.data.kind!=='liars'&&Array.isArray(r.data.players)
+      &&r.data.players.length>=2&&r.data.players.every(done));
+
+    if(!games.length){
+      out.innerHTML='<div class="card"><h2>Nothing finished yet</h2><div class="empty">Play a game to the last box and this board fills itself in: head-to-head record, who actually earns the bonus, how often a Mustache lands, and whether it decides the game.</div></div>';
+      sub.textContent='0 completed games';
+      return;
+    }
+
+    // ---- aggregate ----
+    const P={}; // name -> stats
+    const touch=n=>P[n]||(P[n]={n,games:0,wins:0,pts:0,best:0,bonus:0,staches:0,upper:{},upperN:{},margins:[],hist:[]});
+    UPPER.forEach(()=>{});
+    let stacheGames=0, stacheDecided=0, closest=null, biggest=null;
+
+    games.forEach(g=>{
+      const ps=g.data.players, tot=ps.map(total), hi=Math.max(...tot);
+      const sorted=tot.slice().sort((a,b)=>b-a), margin=sorted[0]-sorted[1];
+      const anyStache=ps.some(p=>p.scores.fiveKind===50||(p.extraFives||0)>0);
+      if(anyStache){
+        stacheGames++;
+        const wi=tot.indexOf(hi);
+        if(ps[wi].scores.fiveKind===50||(ps[wi].extraFives||0)>0) stacheDecided++;
+      }
+      if(!closest||margin<closest.m) closest={m:margin,g:g,tot:tot,ps:ps};
+      if(!biggest||margin>biggest.m) biggest={m:margin,g:g,tot:tot,ps:ps};
+      ps.forEach((p,i)=>{
+        const s=touch(p.name);
+        s.games++; s.pts+=tot[i]; s.best=Math.max(s.best,tot[i]);
+        const won=tot[i]===hi&&tot.filter(t=>t===hi).length===1;
+        if(won){s.wins++;}
+        s.hist.push(won?1:0);
+        s.margins.push(tot[i]-Math.max(...tot.filter((_,j)=>j!==i)));
+        const us=UPPER.reduce((a,[id])=>a+(p.scores[id]??0),0);
+        if(us>=63) s.bonus++;
+        if(p.scores.fiveKind===50) s.staches++;
+        s.staches+=(p.extraFives||0);
+        UPPER.forEach(([id,f])=>{ s.upper[f]=(s.upper[f]||0)+(p.scores[id]??0); s.upperN[f]=(s.upperN[f]||0)+1; });
+      });
+    });
+
+    const names=Object.values(P).sort((a,b)=>b.games-a.games);
+    sub.textContent=games.length+' completed game'+(games.length>1?'s':'')+' \u00b7 live from the table';
+    out.innerHTML='';
+
+    // ---- head to head ----
+    if(names.length>=2){
+      const [a,b]=names;
+      const c=el('div','card');
+      c.appendChild(el('h2','','Head to head'));
+      c.appendChild(el('p','hint','Wins across every completed game on this table.'));
+      const vs=el('div','vs');
+      const side=(s,lead)=>{const d=el('div','n'+(lead?' lead':''));d.innerHTML='<div class="w">'+s.wins+'</div>'+s.n;return d;};
+      vs.appendChild(side(a,a.wins>=b.wins)); vs.appendChild(el('div','dash','\u2013')); vs.appendChild(side(b,b.wins>=a.wins));
+      c.appendChild(vs);
+      names.slice(0,4).forEach(s=>{
+        const r=el('div','srow');
+        r.appendChild(el('div','k',s.n+' \u00b7 average'));
+        r.appendChild(el('div','v',Math.round(s.pts/s.games)));
+        c.appendChild(r);
+      });
+      names.slice(0,4).forEach(s=>{
+        const r=el('div','srow');
+        r.appendChild(el('div','k',s.n+' \u00b7 best game'));
+        r.appendChild(el('div','v green',s.best));
+        c.appendChild(r);
+      });
+      // sparkline of results for the leader
+      const sp=el('div','spark');
+      a.hist.slice(-24).forEach(w=>{const d=el('div',w?'':'lose');d.style.height=(w?100:45)+'%';sp.appendChild(d);});
+      c.appendChild(el('div','legend',a.n+'\u2019s last '+Math.min(24,a.hist.length)+' games \u2014 tall bars are wins.'));
+      c.appendChild(sp);
+      out.appendChild(c);
+    }
+
+    // ---- upper section vs par ----
+    const c2=el('div','card');
+    c2.appendChild(el('h2','','Upper section against par'));
+    c2.appendChild(el('p','hint','Your real averages per box. Red line is par (three of a kind). The simulation said everyone runs under par \u2014 this is whether you do.'));
+    const bars=el('div','bars');
+    const leader=names[0], second=names[1];
+    UPPER.forEach(([id,f])=>{
+      const avgA=leader.upper[f]/leader.upperN[f];
+      const avgB=second?second.upper[f]/second.upperN[f]:null;
+      const par=3*f, scale=5*f;
+      const row=el('div','brow');
+      row.appendChild(el('div','face',f+'s'));
+      const bar=el('div','bar');
+      const fa=el('div','fill'); fa.style.width=Math.min(100,avgA/scale*100)+'%'; fa.style.height='50%'; bar.appendChild(fa);
+      if(avgB!==null){const fb=el('div','fill b'); fb.style.width=Math.min(100,avgB/scale*100)+'%'; fb.style.top='50%'; fb.style.height='50%'; bar.appendChild(fb);}
+      const pr=el('div','par'); pr.style.left=(par/scale*100)+'%'; bar.appendChild(pr);
+      row.appendChild(bar);
+      row.appendChild(el('div','bnum','<b>'+avgA.toFixed(1)+'</b>'+(avgB!==null?' / '+avgB.toFixed(1):'')));
+      bars.appendChild(row);
+    });
+    c2.appendChild(bars);
+    const bonusPct=names.map(s=>s.n+' '+Math.round(s.bonus/s.games*100)+'%').join(' \u00b7 ');
+    c2.appendChild(el('div','legend','Dark bar is '+leader.n+(second?', light is '+second.n:'')+'. Bonus earned: '+bonusPct+'.'));
+    out.appendChild(c2);
+
+    // ---- the mustache question ----
+    const c3=el('div','card');
+    c3.appendChild(el('h2','','Does the Mustache decide it?'));
+    c3.appendChild(el('p','hint','The simulation put five-of-a-kind at 4.4% per turn and suggested the games containing one are decided by it. Here is the table\u2019s answer.'));
+    const chips=el('div','chips');
+    const pct=games.length?Math.round(stacheGames/games.length*100):0;
+    chips.appendChild(el('div','chip hot','<b>'+pct+'%</b><span>games with a Mustache</span>'));
+    chips.appendChild(el('div','chip','<b>'+(stacheGames?Math.round(stacheDecided/stacheGames*100):0)+'%</b><span>of those won by its owner</span>'));
+    chips.appendChild(el('div','chip','<b>'+closest.m+'</b><span>closest game (points)</span>'));
+    chips.appendChild(el('div','chip','<b>'+biggest.m+'</b><span>biggest blowout</span>'));
+    c3.appendChild(chips);
+    const totalStaches=names.reduce((a,s)=>a+s.staches,0);
+    c3.appendChild(el('div','legend',totalStaches+' Mustache'+(totalStaches===1?'':'s')+' rolled across '+games.length+' game'+(games.length===1?'':'s')+
+      '. Closest finish: '+closest.ps.map((p,i)=>p.name+' '+closest.tot[i]).join(' vs ')+'.'));
+    out.appendChild(c3);
+  }
+
+  document.getElementById('refresh').onclick=load;
+  load();
+  setInterval(()=>{ if(!document.hidden) load(); }, 30000);
+})();
+</script>
+</body>
+</html>
