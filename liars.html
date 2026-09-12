@@ -79,7 +79,7 @@
 <header>
   <div>
     <h1>Liar's <span>Dice</span></h1>
-    <div class="sub"><span id="status">&nbsp;</span></div>
+    <div class="sub"><span id="status">&nbsp;</span> · v0905a</div>
   </div>
   <div class="hbtns">
     <button class="hbtn" id="backBtn" style="display:none">Games</button>
@@ -322,7 +322,9 @@
     // bid log
     const log = el('div', 'bidlog');
     if (!game.round.bids.length) log.appendChild(el('div', 'b', 'No bids yet this round.'));
-    game.round.bids.forEach(b => log.appendChild(el('div', 'b', game.seats[b.seat].name + ' bids <b>' + b.qty + ' \u00d7 ' + b.face + 's</b>')));
+    const bids = game.round.bids;
+    if (bids.length > 5) log.appendChild(el('div', 'b', '\u2026 ' + (bids.length - 5) + ' earlier bid' + (bids.length - 5 > 1 ? 's' : '')));
+    bids.slice(-5).forEach(b => log.appendChild(el('div', 'b', game.seats[b.seat].name + ' bids <b>' + b.qty + ' \u00d7 ' + b.face + 's</b>')));
     gamePanel.appendChild(log);
 
     // phase-specific center
