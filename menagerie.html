@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Menagerie">
+<meta name="theme-color" content="#0E0D0C">
+<link rel="apple-touch-icon" href="icon.png">
+<title>The Menagerie</title>
+<style>
+ :root{--ink:#E8E2D4;--bg:#0E0D0C;--muted:#8A8177;--rule:#2A2724;--red:#C0271D;--felt:#3E7D5C}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--bg);color:var(--ink);font-family:'Avenir Next','Segoe UI',system-ui,sans-serif;
+  padding:calc(20px + env(safe-area-inset-top)) 14px calc(28px + env(safe-area-inset-bottom))}
+ h1{font-size:28px;margin:0;letter-spacing:-.5px;font-weight:800}
+ .sub{color:var(--muted);font-size:12.5px;margin:6px 0 4px;line-height:1.5;max-width:34em}
+ .spec{border-top:1px solid var(--rule);padding:18px 0 6px;display:flex;gap:14px;align-items:flex-start}
+ .spec svg{flex:none;background:radial-gradient(circle at 50% 45%, #191715, #0E0D0C 70%);border-radius:10px}
+ .meta{flex:1;min-width:0;padding-top:2px}
+ .binom{font-style:italic;font-size:15px;font-weight:700;line-height:1.25}
+ .who{font-size:12px;color:var(--muted);margin-top:3px}
+ .traits{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:8px}
+ .traits b{color:var(--ink);font-weight:600}
+ .empty{color:var(--muted);font-size:13.5px;line-height:1.6;padding:20px 0}
+ .links{text-align:center;padding-top:22px;border-top:1px solid var(--rule);margin-top:18px}
+ .links a{color:var(--muted);font-size:12.5px;text-decoration:underline;padding:6px 9px;display:inline-block}
+ .key{font-size:11px;color:var(--muted);line-height:1.6;border-top:1px solid var(--rule);margin-top:16px;padding-top:12px}
+</style></head><body>
+<h1>The Menagerie</h1>
+<div class="sub">Every finished game grows one. Its body is the score, its limbs are the upper section, its colour is the winner, its ornaments are what you gambled on. Nothing here is random &mdash; the same game always grows the same animal.</div>
+<div id="out"><div class="empty">Reading the table&hellip;</div></div>
+<div class="key" id="key"></div>
+<div class="links"><a href="index.html">Scorepad</a><a href="board.html">The Board</a><a href="odds.html">The Odds</a><a href="liars.html">Liar's Dice</a></div>
+<script>
+(function(){
+ const URL_='https://sxutwdrtrfjhwydarwry.supabase.co';
+ const KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4dXR3ZHJ0cmZqaHd5ZGFyd3J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI1NTE0MTAsImV4cCI6MjA4ODEyNzQxMH0.rn7H7EZ0WFU-a3MNU_lJy93sb-Jqv2VXM_tGn5TiorU';
+ const UP=[['ones',1],['twos',2],['threes',3],['fours',4],['fives',5],['sixes',6]];
+ const LOW=['three','four','fullHouse','smStraight','lgStraight','fiveKind','chance'];
+ const out=document.getElementById('out');
+ const tot=p=>{const u=UP.reduce((s,[i])=>s+(p.scores[i]??0),0);return u+(u>=63?35:0)+LOW.reduce((s,i)=>s+(p.scores[i]??0),0)+(p.extraFives||0)*100;};
+ const fin=p=>UP.every(([i])=>p.scores[i]!==null)&&LOW.every(i=>p.scores[i]!==null);
+
+ // deterministic PRNG seeded from the game itself
+ function seedFrom(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+ function rng(seed){let s=seed;return()=>{s^=s<<13;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
+
+ const GEN=['Alea','Cubus','Fortuna','Hazard','Mustax','Tesserae','Dolus','Sortis'];
+ const SPE=['vulgaris','magnificens','ferox','pallida','aurata','nocturna','minima','tempestas','placida','spinosa'];
+
+ function draw(g){
+  const ps=g.data.players, t=ps.map(tot), hi=Math.max(...t);
+  const wi=t.indexOf(hi), w=ps[wi], loser=ps[t.indexOf(Math.min(...t))];
+  const margin=hi-Math.min(...t);
+  const key=ps.map(p=>p.name+JSON.stringify(p.scores)).join('|');
+  const R=rng(seedFrom(key));
+  const S=300, cx=S/2, cy=S/2;
+
+  // body size from winning score; segments from margin
+  const body=34+Math.min(46, hi/6);
+  const segs=2+Math.min(4, Math.floor(margin/25));
+  // limbs: one per upper box, length = that box's score relative to par
+  const limbs=UP.map(([id,f])=>{const v=w.scores[id]??0;return {f, ratio:v/(5*f), zero:v===0};});
+  const stache=(w.scores.fiveKind===50)||((w.extraFives||0)>0);
+  const bonus=UP.reduce((s,[i])=>s+(w.scores[i]??0),0)>=63;
+  const scratches=UP.concat(LOW.map(i=>[i,0])).filter(([i])=>w.scores[i]===0).length;
+  const hue=stache?0:(bonus?150:42);
+  const col=stache?'#C0271D':(bonus?'#3E7D5C':'#B08A3E');
+  const ink='#E8E2D4';
+
+  let s='<svg width="132" height="132" viewBox="0 0 '+S+' '+S+'">';
+  // limbs first (behind body)
+  limbs.forEach((L,i)=>{
+   const a=(-90+i*(360/6)+R()*14-7)*Math.PI/180;
+   const len=body*0.7+L.ratio*92;
+   const x2=cx+Math.cos(a)*len, y2=cy+Math.sin(a)*len;
+   const mx=cx+Math.cos(a+0.5)*len*0.55, my=cy+Math.sin(a+0.5)*len*0.55;
+   s+='<path d="M'+cx+' '+cy+' Q'+mx.toFixed(1)+' '+my.toFixed(1)+' '+x2.toFixed(1)+' '+y2.toFixed(1)+'" stroke="'+(L.zero?'#4A443D':col)+'" stroke-width="'+(2+L.ratio*5).toFixed(1)+'" fill="none" stroke-linecap="round" opacity="'+(L.zero?0.5:0.95)+'"/>';
+   // terminal node sized by the box
+   s+='<circle cx="'+x2.toFixed(1)+'" cy="'+y2.toFixed(1)+'" r="'+(2+L.ratio*7).toFixed(1)+'" fill="'+(L.zero?'#4A443D':col)+'"/>';
+  });
+  // body segments
+  for(let i=segs-1;i>=0;i--){
+   const r=body*(1-i*0.16), off=i*body*0.22;
+   s+='<circle cx="'+cx+'" cy="'+(cy+off).toFixed(1)+'" r="'+r.toFixed(1)+'" fill="#171513" stroke="'+col+'" stroke-width="2.5"/>';
+  }
+  // eyes: one per extra mustache, else two
+  const eyes=Math.max(2, 2+(w.extraFives||0));
+  for(let i=0;i<eyes;i++){
+   const a=(-140+i*(280/Math.max(1,eyes-1)))*Math.PI/180;
+   const ex=cx+Math.cos(a)*body*0.45, ey=cy+Math.sin(a)*body*0.42;
+   s+='<circle cx="'+ex.toFixed(1)+'" cy="'+ey.toFixed(1)+'" r="'+(3.4+R()*1.6).toFixed(1)+'" fill="'+ink+'"/>';
+  }
+  // scratch spines
+  for(let i=0;i<scratches;i++){
+   const a=(R()*360)*Math.PI/180, r1=body*0.92, r2=body*1.22;
+   s+='<line x1="'+(cx+Math.cos(a)*r1).toFixed(1)+'" y1="'+(cy+Math.sin(a)*r1).toFixed(1)+'" x2="'+(cx+Math.cos(a)*r2).toFixed(1)+'" y2="'+(cy+Math.sin(a)*r2).toFixed(1)+'" stroke="#6E6156" stroke-width="2"/>';
+  }
+  // the mustache itself, if earned
+  if(stache){
+   const y=cy+body*0.34, sp=body*0.52;
+   s+='<path d="M'+cx+' '+y+' C'+(cx-sp*0.5)+' '+(y+13)+' '+(cx-sp)+' '+(y+7)+' '+(cx-sp*1.15)+' '+(y-6)+' C'+(cx-sp*0.95)+' '+(y+4)+' '+(cx-sp*0.35)+' '+(y+7)+' '+cx+' '+(y+2)+' C'+(cx+sp*0.35)+' '+(y+7)+' '+(cx+sp*0.95)+' '+(y+4)+' '+(cx+sp*1.15)+' '+(y-6)+' C'+(cx+sp)+' '+(y+7)+' '+(cx+sp*0.5)+' '+(y+13)+' '+cx+' '+y+' Z" fill="'+ink+'"/>';
+  }
+  s+='</svg>';
+
+  const gname=GEN[seedFrom(w.name)%GEN.length];
+  const sname=SPE[seedFrom(key)%SPE.length];
+  const d=new Date(g.updated_at);
+  const traits=[];
+  traits.push('<b>'+hi+' pts</b> of body mass');
+  traits.push(bonus?'<b>bonus-bearing</b> (green)':'<b>bonusless</b>');
+  if(stache) traits.push('<b>mustachioed</b> \u2014 the red morph');
+  if(scratches) traits.push('<b>'+scratches+'</b> scratch spine'+(scratches>1?'s':''));
+  if((w.extraFives||0)>0) traits.push('<b>'+(2+w.extraFives)+' eyes</b>');
+  traits.push('limb length = upper box, dim = scratched');
+
+  return '<div class="spec">'+s+'<div class="meta">'+
+   '<div class="binom">'+gname+' '+sname+'</div>'+
+   '<div class="who">grown from '+ps.map(p=>p.name).join(' vs ')+' \u00b7 '+t.join('\u2013')+' \u00b7 '+d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+'</div>'+
+   '<div class="traits">'+traits.join(' \u00b7 ')+'</div>'+
+   '</div></div>';
+ }
+
+ async function load(){
+  let rows=[];
+  try{
+   const r=await fetch(URL_+'/rest/v1/games?select=data,updated_at&order=updated_at.desc&limit=200',{headers:{apikey:KEY,Authorization:'Bearer '+KEY}});
+   rows=await r.json();
+  }catch(e){ out.innerHTML='<div class="empty">The table is unreachable.</div>'; return; }
+  const games=rows.filter(r=>r.data&&r.data.kind!=='liars'&&Array.isArray(r.data.players)&&r.data.players.length>=2&&r.data.players.every(fin));
+  if(!games.length){ out.innerHTML='<div class="empty">The menagerie is empty. Finish a game and something will be waiting here \u2014 what it looks like depends entirely on how you played it.</div>'; return; }
+  out.innerHTML=games.map(draw).join('');
+  document.getElementById('key').innerHTML='Six limbs, one per upper box, length set by what you scored there \u2014 dim stubs are scratches. Body mass is the winning score, segments are the margin. Green means the bonus was earned, red means a Mustache, amber means neither. Extra eyes are extra mustaches. Spines are zeroes. '+games.length+' specimen'+(games.length>1?'s':'')+' catalogued.';
+ }
+ load();
+})();
+</script></body></html>
