@@ -146,7 +146,7 @@
 <header>
   <div>
     <h1>Scorepad</h1>
-    <p>Five dice, thirteen rounds. Tap a box to score it.<span id="status"></span></p>
+    <p>Five dice, thirteen rounds. Tap a box to score it. · v0905d<span id="status"></span></p>
   </div>
   <div class="hbtns">
     <button class="hbtn" id="addBtn">+ Player</button>
@@ -428,9 +428,14 @@
     if (allDone && n > 1) {
       const sorted = totals.slice().sort((a,b) => b - a);
       const leaders = players.filter((_, i) => totals[i] === max).map(p => p.name);
-      banner.textContent = leaders.length > 1
+      banner.innerHTML = '';
+      banner.appendChild(el('span', '', leaders.length > 1
         ? `Tie: ${leaders.join(' and ')} at ${max}`
-        : `${leaders[0]} wins by ${sorted[0] - sorted[1]} (${max} to ${sorted[1]})`;
+        : `${leaders[0]} wins by ${sorted[0] - sorted[1]} (${max} to ${sorted[1]})`));
+      const again = el('button', '', 'Rematch');
+      again.style.cssText = 'float:right;background:#F6F1E1;color:#1F5F45;border:none;border-radius:8px;padding:6px 12px;font-weight:800;font-size:13px;font-family:inherit';
+      again.onclick = () => { openGame(newCode(), players.map(p => mkPlayer(p.name))); schedulePush(); };
+      banner.appendChild(again);
       banner.style.display = '';
     } else banner.style.display = 'none';
 
@@ -794,10 +799,18 @@
         const fills = ps.map(rFilled).reduce((a, b) => a + b, 0);
         const d = new Date(row.updated_at);
         const when = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        let verdict = '';
+        if (done) {
+          const hi = Math.max(...totals), sortT = totals.slice().sort((a,b)=>b-a);
+          const winners = ps.filter((_, j) => totals[j] === hi).map(p => p.name);
+          verdict = winners.length > 1 ? 'Tie at ' + hi : winners[0] + ' wins by ' + (sortT[0] - sortT[1]);
+        }
+        const left = done ? 'Final \u00b7 ' + when : fills + '/' + rIds.length * ps.length + ' boxes \u00b7 ' + when;
         const rowEl = el('div', 'gamerow');
         rowEl.innerHTML = '<div class="grow"><div class="who">' + ps.map(p => p.name).join(' vs ') + '<span class="modetag">' + MODES[rm].tag + '</span></div>' +
-          '<div class="meta">' + (done ? 'Final' : fills + '/' + rIds.length * ps.length + ' boxes') + ' \u00b7 ' + when + '</div></div>' +
-          '<div class="score">' + totals.join('\u2013') + '</div>';
+          '<div class="meta">' + left + '</div></div>' +
+          '<div style="text-align:right"><div class="score">' + totals.join('\u2013') + '</div>' +
+          (verdict ? '<div class="meta">' + verdict + '</div>' : '') + '</div>';
         const del = el('button', 'del', '\u00d7'); del.setAttribute('aria-label', 'Delete game');
         del.onclick = async (e) => {
           e.stopPropagation();
