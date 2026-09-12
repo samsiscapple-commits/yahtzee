@@ -1,0 +1,77 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#1F5F45">
+<link rel="apple-touch-icon" href="icon.png"><title>The Odds</title>
+<style>
+ :root{--ink:#1D2B22;--paper:#FBF8EF;--felt:#1F5F45;--red:#B5372A;--muted:#6C6A5E;--rule:#D9D2BF}
+ *{box-sizing:border-box}
+ body{margin:0;background:var(--felt);color:var(--ink);font-family:'Avenir Next','Segoe UI',system-ui,sans-serif;
+  padding:calc(18px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom))}
+ h1{color:#F6F1E1;font-size:26px;margin:0;letter-spacing:-.5px}
+ .sub{color:#F6F1E1;opacity:.75;font-size:12.5px;margin:4px 0 16px;line-height:1.45}
+ .card{background:var(--paper);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+ h2{font-size:15px;margin:0 0 4px}
+ .hint{font-size:12px;color:var(--muted);margin:0 0 12px;line-height:1.45}
+ .row{display:flex;align-items:center;gap:10px;padding:7px 0}
+ .face{width:26px;font-weight:800;font-size:15px}
+ .bar{flex:1;height:24px;background:#EFE9D8;border-radius:5px;position:relative;overflow:hidden}
+ .fill{position:absolute;inset:0 auto 0 0;background:var(--felt);border-radius:5px}
+ .par{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--red)}
+ .num{width:78px;text-align:right;font-variant-numeric:tabular-nums;font-weight:800;font-size:15px}
+ .num small{display:block;font-weight:500;font-size:10.5px;color:var(--muted)}
+ .legend{font-size:11.5px;color:var(--muted);padding-top:8px;border-top:1px solid var(--rule);margin-top:10px}
+ .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+ .p{background:#EFE9D8;border-radius:9px;padding:12px}
+ .p b{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+ .p span{font-size:11.5px;color:var(--muted)}
+ .p.hot b{color:var(--red)}
+ a.back{display:block;text-align:center;color:#F6F1E1;font-weight:700;font-size:13px;text-decoration:underline;padding:6px}
+</style></head><body>
+<h1>The Odds</h1>
+<div class="sub">200,000 simulated turns, played the greedy way: chase one face, reroll the rest, three rolls. No adviser at the table &mdash; just what the dice actually do over a long night.</div>
+
+<div class="card">
+  <h2>Upper section: what a turn is really worth</h2>
+  <p class="hint">Green bar is the average you score chasing that face. Red line is par (three of a kind). Every face pays slightly under par &mdash; which is why the bonus is hard, and why sixes carry it.</p>
+  <div class="row">
+      <div class="face">1s</div>
+      <div class="bar"><div class="fill" style="width:16.7%"></div><div class="par" style="left:23.8%"></div></div>
+      <div class="num">2.11<small>-0.89 vs par</small></div>
+    </div><div class="row">
+      <div class="face">2s</div>
+      <div class="bar"><div class="fill" style="width:33.5%"></div><div class="par" style="left:47.6%"></div></div>
+      <div class="num">4.22<small>-1.78 vs par</small></div>
+    </div><div class="row">
+      <div class="face">3s</div>
+      <div class="bar"><div class="fill" style="width:50.1%"></div><div class="par" style="left:71.4%"></div></div>
+      <div class="num">6.32<small>-2.68 vs par</small></div>
+    </div><div class="row">
+      <div class="face">4s</div>
+      <div class="bar"><div class="fill" style="width:66.7%"></div><div class="par" style="left:95.2%"></div></div>
+      <div class="num">8.42<small>-3.58 vs par</small></div>
+    </div><div class="row">
+      <div class="face">5s</div>
+      <div class="bar"><div class="fill" style="width:83.7%"></div><div class="par" style="left:119.0%"></div></div>
+      <div class="num">10.55<small>-4.45 vs par</small></div>
+    </div><div class="row">
+      <div class="face">6s</div>
+      <div class="bar"><div class="fill" style="width:100.0%"></div><div class="par" style="left:142.7%"></div></div>
+      <div class="num">12.61<small>-5.39 vs par</small></div>
+    </div>
+  <div class="legend">Chasing only sixes averages 12.61 per turn against a par of 18. Six perfect turns would be 63; the simulation says you land near 44.</div>
+</div>
+
+<div class="card">
+  <h2>How often the good stuff lands</h2>
+  <p class="hint">Greedy play, three rolls, chasing the most common face in hand.</p>
+  <div class="pgrid">
+    <div class="p"><b>74%</b><span>three of a kind</span></div>
+    <div class="p"><b>29%</b><span>four of a kind</span></div>
+    <div class="p hot"><b>4.4%</b><span>Mustache!</span></div>
+    <div class="p"><b>10%</b><span>full house</span></div>
+  </div>
+  <div class="legend">One turn in 23 ends in a Mustache. Over a thirteen-box game that is roughly a 44% chance of seeing at least one &mdash; so most games have none, and the ones that do are decided by it.</div>
+</div>
+
+<a class="back" href="index.html">&larr; Scorepad</a> <a class="back" href="liars.html">Liar's Dice &rarr;</a>
+</body></html>
