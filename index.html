@@ -146,7 +146,7 @@
 <header>
   <div>
     <h1>Scorepad</h1>
-    <p>Five dice, thirteen rounds. Tap a box to score it. · v0905d<span id="status"></span></p>
+    <p>Five dice, thirteen rounds. Tap a box to score it. · v0905e<span id="status"></span></p>
   </div>
   <div class="hbtns">
     <button class="hbtn" id="addBtn">+ Player</button>
@@ -434,7 +434,20 @@
         : `${leaders[0]} wins by ${sorted[0] - sorted[1]} (${max} to ${sorted[1]})`));
       const again = el('button', '', 'Rematch');
       again.style.cssText = 'float:right;background:#F6F1E1;color:#1F5F45;border:none;border-radius:8px;padding:6px 12px;font-weight:800;font-size:13px;font-family:inherit';
-      again.onclick = () => { openGame(newCode(), players.map(p => mkPlayer(p.name))); schedulePush(); };
+      again.onclick = async () => {
+        const oldCode = gameCode, oldPlayers = players, oldMode = mode, nc = newCode();
+        if (SYNC_ON() && oldCode) {
+          const ts = new Date().toISOString();
+          try {
+            await api('games?on_conflict=code', {
+              method: 'POST', headers: { 'Prefer': 'resolution=merge-duplicates' },
+              body: JSON.stringify([{ code: oldCode, data: { players: oldPlayers, mode: oldMode, rematchTo: nc, writer: myId, ts }, updated_at: ts }]),
+            });
+          } catch (e) {}
+        }
+        openGame(nc, oldPlayers.map(p => mkPlayer(p.name)));
+        schedulePush();
+      };
       banner.appendChild(again);
       banner.style.display = '';
     } else banner.style.display = 'none';
@@ -641,6 +654,9 @@
       const rows = await r.json();
       if (!rows.length) return;
       const row = rows[0];
+      if (row.data && row.data.rematchTo && row.data.rematchTo !== gameCode && row.data.writer !== myId) {
+        showRematchBar(row.data.rematchTo);
+      }
       if (row.data && row.data.writer !== myId && row.updated_at > lastSeenTs) {
         lastSeenTs = row.updated_at;
         applying = true;
@@ -751,6 +767,35 @@
   function dropWakeLock() { try { if (wl) wl.release(); } catch (e) {} wl = null; }
   document.addEventListener('visibilitychange', () => { if (document.hidden) dropWakeLock(); else grabWakeLock(); });
 
+  // ---- rematch invitation ----
+  let rematchBarFor = null;
+  function showRematchBar(code) {
+    if (rematchBarFor === code || document.getElementById('rematchBar')) return;
+    rematchBarFor = code;
+    const bar = el('div', '', '');
+    bar.id = 'rematchBar';
+    bar.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));background:#1F5F45;color:#F6F1E1;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 10px 28px rgba(0,0,0,.4);z-index:30;font-size:14px;font-weight:700';
+    bar.appendChild(el('div', '', 'Rematch started'));
+    const join = el('button', '', 'Join');
+    join.style.cssText = 'margin-left:auto;background:#F6F1E1;color:#1F5F45;border:none;border-radius:8px;padding:8px 14px;font-weight:800;font-size:14px;font-family:inherit';
+    join.onclick = async () => {
+      bar.remove();
+      try {
+        const r = await api('games?code=eq.' + encodeURIComponent(code) + '&select=data');
+        const rows = r.ok ? await r.json() : [];
+        if (rows.length && rows[0].data) {
+          const m = MODES[rows[0].data.mode] ? rows[0].data.mode : 'classic';
+          openGame(code, normalize(rows[0].data.players, m), m);
+        }
+      } catch (e) {}
+    };
+    const no = el('button', '', '\u00d7');
+    no.style.cssText = 'background:none;border:none;color:#CFE3D6;font-size:20px;padding:0 2px;font-family:inherit';
+    no.onclick = () => { bar.remove(); };
+    bar.appendChild(join); bar.appendChild(no);
+    document.body.appendChild(bar);
+  }
+
   // ---- list / pad views ----
   const listPad = document.getElementById('listPad'), padWrap = document.getElementById('padWrap');
   const gameList = document.getElementById('gameList');
@@ -767,6 +812,8 @@
   }
 
   function openGame(code, plist, m) {
+    const rb = document.getElementById('rematchBar'); if (rb) rb.remove();
+    rematchBarFor = null;
     if (m) mode = MODES[m] ? m : 'classic';
     gameCode = code; localStorage.setItem(CODEKEY, code);
     try { sessionStorage.setItem('scorepad:sess', code); } catch (e) {}
